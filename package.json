@@ -1,0 +1,16 @@
+{
+  "name": "rbhu-enterprise-operations-platform",
+  "version": "1.0.0",
+  "description": "RBHU ETG Private Limited - Full Stack Engineer Technical Assessment Platform",
+  "author": "Yogesh Ghanshyam Shilawat <Full Stack Developer – Assessment Project>",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "test": "npm --prefix backend test && npm --prefix frontend run build",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "seed": "npm --prefix backend run prisma:seed",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down -v"
+  }
+}

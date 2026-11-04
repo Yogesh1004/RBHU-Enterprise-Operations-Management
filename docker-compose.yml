@@ -1,0 +1,102 @@
+version: "3.9"
+
+services:
+  # 1. PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: rbhu-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rbhuadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-RbhuStrongPass2026!}
+      POSTGRES_DB: ${POSTGRES_DB:-rbhudb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rbhu-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rbhuadmin -d rbhudb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Python Sales Analytics Microservice
+  analytics-service:
+    build:
+      context: ./analytics-service
+      dockerfile: Dockerfile
+    container_name: rbhu-analytics
+    restart: unless-stopped
+    environment:
+      ANALYTICS_PORT: 5001
+      ANALYTICS_HOST: "0.0.0.0"
+      FLASK_ENV: production
+      ALLOWED_ORIGINS: "*"
+    ports:
+      - "5001:5001"
+    networks:
+      - rbhu-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # 3. Node.js Express Core Backend API & Socket Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rbhu-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      analytics-service:
+        condition: service_started
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://rbhuadmin:RbhuStrongPass2026!@postgres:5432/rbhudb?schema=public"
+      JWT_SECRET: ${JWT_SECRET:-rbhu_enterprise_jwt_secure_key_2026_super_secret}
+      JWT_EXPIRES_IN: "1d"
+      CORS_ORIGIN: "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+      ANALYTICS_SERVICE_URL: "http://analytics-service:5001"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_KEY: ${AZURE_OPENAI_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT_NAME: ${AZURE_OPENAI_DEPLOYMENT_NAME:-}
+    ports:
+      - "5000:5000"
+    networks:
+      - rbhu-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # 4. React Vite SaaS Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rbhu-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    networks:
+      - rbhu-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  rbhu-network:
+    driver: bridge
